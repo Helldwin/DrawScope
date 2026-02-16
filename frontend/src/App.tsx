@@ -1,30 +1,37 @@
-import { useEffect, useState } from "react";
-import HeatmapAnimated from "./components/HeatmapAnimated";
-import Predictions from "./components/Predictions";
-import TopNumbers from "./components/TopNumbers";
+// src/context/DrawScopeContext.tsx
+import React, { createContext, useState, ReactNode } from "react";
 
-export default function App() {
-  const [draws, setDraws] = useState<any[]>([]);
-  const [predictions, setPredictions] = useState<number[]>([]);
-  const [gapStats, setGapStats] = useState<any>({});
+interface DrawScopeParams {
+  minFrequency: number;
+  maxFrequency: number;
+  showTopNumbers: boolean;
+  [key: string]: any; // pour ajouter d'autres sliders facilement
+}
 
-  useEffect(() => {
-    fetch("/data.json").then(r => r.json()).then(setDraws);
-    fetch("/gap_stats.json").then(r => r.json()).then(setGapStats);
-    fetch("/predictions.json").then(r => r.json()).then(setPredictions);
-  }, []);
+interface DrawScopeContextType {
+  params: DrawScopeParams;
+  setParams: React.Dispatch<React.SetStateAction<DrawScopeParams>>;
+}
+
+export const DrawScopeContext = createContext<DrawScopeContextType>({
+  params: {
+    minFrequency: 0,
+    maxFrequency: 49,
+    showTopNumbers: true,
+  },
+  setParams: () => { },
+});
+
+export const DrawScopeProvider = ({ children }: { children: ReactNode }) => {
+  const [params, setParams] = useState<DrawScopeParams>({
+    minFrequency: 0,
+    maxFrequency: 49,
+    showTopNumbers: true,
+  });
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-8 space-y-8">
-      <h1 className="text-4xl font-bold text-center mb-6">
-        DrawScope V1.0
-      </h1>
-
-      <Predictions numbers={predictions} />
-
-      {gapStats && <TopNumbers stats={gapStats} />}
-
-      {draws.length > 0 && <HeatmapAnimated draws={draws} />}
-    </div>
+    <DrawScopeContext.Provider value={{ params, setParams }}>
+      {children}
+    </DrawScopeContext.Provider>
   );
-}
+};

@@ -1,19 +1,30 @@
-export default function Predictions({ numbers }: { numbers: number[] }) {
+import { useEffect, useState } from "react";
+
+const Predictions = () => {
+	const [predictions, setPredictions] = useState<Record<string, number>>({});
+
+	useEffect(() => {
+		fetch("/predictions.json")  // <- chemin relatif depuis le site
+			.then(res => {
+				if (!res.ok) throw new Error("Failed to fetch predictions");
+				return res.json();
+			})
+			.then(data => setPredictions(data))
+			.catch(err => console.error(err));
+	}, []);
+
 	return (
-		<div className="bg-gray-800 p-6 rounded-xl shadow-md">
-			<h2 className="text-xl font-bold mb-4">🔮 Numéros à jouer (Prédictions)</h2>
-			<div className="flex gap-4 justify-center">
-				{numbers.map(n => (
-					<div
-						key={n}
-						className="w-14 h-14 flex items-center justify-center
-                       bg-gradient-to-r from-yellow-400 to-orange-500
-                       text-gray-900 font-bold text-2xl rounded-full shadow-lg"
-					>
-						{n}
-					</div>
+		<div>
+			<h2 className="text-xl font-bold mb-2">Prédictions</h2>
+			<ul>
+				{Object.entries(predictions).map(([num, score]) => (
+					<li key={num}>
+						{num} : <strong>{score}</strong>
+					</li>
 				))}
-			</div>
+			</ul>
 		</div>
 	);
-}
+};
+
+export default Predictions;
