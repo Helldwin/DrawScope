@@ -5,17 +5,11 @@ import Predictions from "./components/Predictions.tsx"
 import MonteCarlo from "./components/MonteCarlo.tsx"
 import RecentDraws from "./components/RecentDraws.tsx"
 
+import dataJson from './data/data.json'
+
 function App() {
 
-	const [data, setData] = useState<any>(null)
-
-	useEffect(() => {
-
-		fetch("/data/data.json")
-			.then(r => r.json())
-			.then(setData)
-
-	}, [])
+	const [data, setData] = useState(dataJson)
 
 	if (!data) return <div>Loading...</div>
 
