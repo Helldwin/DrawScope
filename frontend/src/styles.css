@@ -1,0 +1,31 @@
+body {
+
+	background: #0f172a;
+	color: white;
+	font-family: Arial;
+
+}
+
+.container {
+
+	max-width: 1000px;
+	margin: auto;
+	padding: 40px;
+
+}
+
+.grid {
+
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 5px;
+
+}
+
+.cell {
+
+	padding: 10px;
+	text-align: center;
+	border-radius: 6px;
+
+}

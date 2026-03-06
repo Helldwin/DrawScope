@@ -1,37 +1,44 @@
-// src/context/DrawScopeContext.tsx
-import React, { createContext, useState, ReactNode } from "react";
+import { useEffect, useState } from "react"
 
-interface DrawScopeParams {
-  minFrequency: number;
-  maxFrequency: number;
-  showTopNumbers: boolean;
-  [key: string]: any; // pour ajouter d'autres sliders facilement
+import Heatmap from "./components/Heatmap"
+import Predictions from "./components/Predictions"
+import MonteCarlo from "./components/MonteCarlo"
+import RecentDraws from "./components/RecentDraws"
+
+function App() {
+
+	const [data, setData] = useState<any>(null)
+
+	useEffect(() => {
+
+		fetch("/data/data.json")
+			.then(r => r.json())
+			.then(setData)
+
+	}, [])
+
+	if (!data) return <div>Loading...</div>
+
+	return (
+
+		<div className="container">
+
+			<h1>DrawScope V4</h1>
+
+			<p>Last update {data.last_update}</p>
+
+			<Heatmap data={data.scores} />
+
+			<Predictions data={data.scores} />
+
+			<MonteCarlo data={data.montecarlo} />
+
+			<RecentDraws data={data.recent_draws} />
+
+		</div>
+
+	)
+
 }
 
-interface DrawScopeContextType {
-  params: DrawScopeParams;
-  setParams: React.Dispatch<React.SetStateAction<DrawScopeParams>>;
-}
-
-export const DrawScopeContext = createContext<DrawScopeContextType>({
-  params: {
-    minFrequency: 0,
-    maxFrequency: 49,
-    showTopNumbers: true,
-  },
-  setParams: () => { },
-});
-
-export const DrawScopeProvider = ({ children }: { children: ReactNode }) => {
-  const [params, setParams] = useState<DrawScopeParams>({
-    minFrequency: 0,
-    maxFrequency: 49,
-    showTopNumbers: true,
-  });
-
-  return (
-    <DrawScopeContext.Provider value={{ params, setParams }}>
-      {children}
-    </DrawScopeContext.Provider>
-  );
-};
+export default App

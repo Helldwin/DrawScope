@@ -1,16 +1,16 @@
-export default function RecentDraws({ data }: any) {
+export default function MonteCarlo({ data }: any) {
 
 	return (
 
 		<div>
 
-			<h2>Recent draws</h2>
+			<h2>Monte Carlo</h2>
 
 			<ul>
 
 				{data.map((d: any, i: number) => (
 					<li key={i}>
-						{d.join(" - ")}
+						{d.numbers.join(" - ")}
 					</li>
 				))}
 
