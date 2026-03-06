@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
 
-import Heatmap from "./components/Heatmap"
-import Predictions from "./components/Predictions"
-import MonteCarlo from "./components/MonteCarlo"
-import RecentDraws from "./components/RecentDraws"
+import Heatmap from "./components/Heatmap.tsx"
+import Predictions from "./components/Predictions.tsx"
+import MonteCarlo from "./components/MonteCarlo.tsx"
+import RecentDraws from "./components/RecentDraws.tsx"
 
 function App() {
 
