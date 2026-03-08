@@ -2,7 +2,7 @@ import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from frenchlottery import loto
+from frenchlottery import loto_helper
 
 # -----------------------
 # FETCH REAL LOTO DATA
@@ -10,7 +10,7 @@ from frenchlottery import loto
 
 print("Fetching Loto history...")
 
-df = loto.get_loto_draws()
+df = loto_helper.get_loto_results()
 
 # Colonnes : B1 B2 B3 B4 B5 S1
 numbers_columns = ["B1", "B2", "B3", "B4", "B5"]
