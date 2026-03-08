@@ -9,7 +9,7 @@ function App() {
 	const [data, setData] = useState<any>(null)
 
 	useEffect(() => {
-		fetch("/drawscope/data/data.json")
+		fetch(import.meta.env.BASE_URL + "data/data.json")
 			.then(r => r.json())
 			.then(setData)
 	}, [])
