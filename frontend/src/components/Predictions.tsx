@@ -5,21 +5,13 @@ export default function Predictions({ data }: any) {
 		.slice(0, 10)
 
 	return (
-
 		<div>
-
-			<h2>Top numbers</h2>
-
+			<h2>Top Numbers</h2>
 			<ul>
-
 				{sorted.map(([n, v]: any) => (
-					<li key={n}>{n} : {v}%</li>
+					<li key={n}>{n} — {v}%</li>
 				))}
-
 			</ul>
-
 		</div>
-
 	)
-
 }
