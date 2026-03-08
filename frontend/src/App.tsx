@@ -1,33 +1,39 @@
 import { useEffect, useState } from "react"
-import Heatmap from "./components/Heatmap"
-import Predictions from "./components/Predictions"
-import MonteCarlo from "./components/MonteCarlo"
-import RecentDraws from "./components/RecentDraws"
+import Dashboard from "./components/Dashboard"
+import Loader from "./components/Loader"
 
-function App() {
-
+export default function App() {
 	const [data, setData] = useState<any>(null)
+	const [error, setError] = useState(false)
 
 	useEffect(() => {
-		fetch(import.meta.env.BASE_URL + "data/data.json")
-			.then(r => r.json())
+		fetch("data/data.json", { cache: "no-store" })
+			.then(res => {
+				if (!res.ok) throw new Error()
+				return res.json()
+			})
 			.then(setData)
+			.catch(() => {
+				console.warn("Fallback mode")
+				setData({
+					scores: {},
+					predictions: [],
+					recent_draws: []
+				})
+			})
 	}, [])
 
-	if (!data) return <div>Loading...</div>
 
-	return (
-		<div className="container">
-			<h1>DrawScope V4</h1>
-			<p>Last update {data.last_update}</p>
+	if (error) {
+		return (
+			<div style={{ padding: 40, color: "white", background: "#111", minHeight: "100vh" }}>
+				<h1>⚠️ Données indisponibles</h1>
+				<p>Les statistiques seront mises à jour prochainement.</p>
+			</div>
+		)
+	}
 
-			<Heatmap data={data.scores} />
-			<Predictions data={data.scores} />
-			<MonteCarlo data={data.montecarlo} />
-			<RecentDraws data={data.recent_draws} />
+	if (!data) return <Loader />
 
-		</div>
-	)
+	return <Dashboard data={data} />
 }
-
-export default App

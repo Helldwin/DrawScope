@@ -1,7 +1,12 @@
 import json
 import random
 
-scores = {i: random.randint(10, 100) for i in range(1, 50)}
+score = (
+    0.4 * frequency_score +
+    0.3 * ecart_score +
+    0.3 * montecarlo_score
+)
+
 
 predictions = sorted(random.sample(range(1, 50), 5))
 

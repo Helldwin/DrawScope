@@ -1,8 +1,8 @@
 export default function Heatmap({ scores }: any) {
 
 	const getColor = (value: number) => {
-		const red = Math.max(0, 255 - value * 2)
-		const green = Math.min(255, value * 2)
+		const red = Math.round(255 * (1 - value))
+		const green = Math.round(255 * value)
 		return `rgb(${red}, ${green}, 80)`
 	}
 
