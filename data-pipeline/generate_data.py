@@ -60,4 +60,24 @@ recent_draws = []
 for _ in range(5):
     draw = sorted(random.sample(NUMBERS_RANGE, DRAW_SIZE))
     recent_draws.append({
-        "date": datetime.now().strftime("%Y-%
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "numbers": draw
+    })
+
+# ---------------------------
+# OUTPUT
+# ---------------------------
+
+data = {
+    "last_update": datetime.now().strftime("%Y-%m-%d"),
+    "scores": final_scores,
+    "predictions": predictions,
+    "recent_draws": recent_draws
+}
+
+output_path = "../frontend/public/data/data.json"
+
+with open(output_path, "w") as f:
+    json.dump(data, f, indent=2)
+
+print("Data generated successfully.")
