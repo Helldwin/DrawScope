@@ -1,17 +1,23 @@
-export default function Predictions({ data }: any) {
-
-	const sorted = Object.entries(data)
-		.sort((a: any, b: any) => b[1] - a[1])
-		.slice(0, 10)
-
+export default function Predictions({ numbers }: any) {
 	return (
-		<div>
-			<h2>Top Numbers</h2>
-			<ul>
-				{sorted.map(([n, v]: any) => (
-					<li key={n}>{n} — {v}%</li>
+		<div style={{ marginTop: 40 }}>
+			<h2>🎯 Combinaison suggérée</h2>
+			<div style={{ display: "flex", gap: 12 }}>
+				{numbers.map((n: number, i: number) => (
+					<div key={i} style={{
+						width: 50,
+						height: 50,
+						borderRadius: "50%",
+						background: "#2563eb",
+						display: "flex",
+						justifyContent: "center",
+						alignItems: "center",
+						fontWeight: "bold"
+					}}>
+						{n}
+					</div>
 				))}
-			</ul>
+			</div>
 		</div>
 	)
 }

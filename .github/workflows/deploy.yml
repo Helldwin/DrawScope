@@ -1,26 +1,48 @@
-name: deploy
+name: Build & Deploy
 
 on:
   push:
     branches: [ main ]
+  schedule:
+    - cron: "0 3 * * *"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v3
 
-      - name: setup node
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Generate data
+        run: |
+          cd data-pipeline
+          python generate_data.py
+
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - run: cd frontend && npm install
+      - name: Install
+        run: |
+          cd frontend
+          npm install
 
-      - run: cd frontend && npm run build
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
 
-      - uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./frontend/dist
