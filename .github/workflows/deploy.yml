@@ -21,6 +21,10 @@ jobs:
         with:
           python-version: 3.11
 
+      - name: Install Python dependencies
+        run: |
+          pip install frenchlottery pandas numpy
+
       - name: Generate data
         run: |
           cd data-pipeline
