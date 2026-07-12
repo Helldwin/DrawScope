@@ -1,4 +1,4 @@
-export interface RecentDraw {
+export interface Draw {
 	date: string
 	numbers: number[]
 	chance: number
@@ -6,7 +6,5 @@ export interface RecentDraw {
 
 export interface DrawScopeData {
 	last_update: string
-	scores: Record<string, number>
-	predictions: number[]
-	recent_draws: RecentDraw[]
+	draws: Draw[]
 }

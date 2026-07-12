@@ -1,16 +1,32 @@
 import { useMemo, useState } from "react"
+import type { NumberKind } from "../lib/stats"
 
 type SortMode = "number" | "score"
 
 function scoreColor(value: number) {
-	// Cool -> warm sequential scale (blue to amber/red), colorblind-friendlier than red/green.
-	const hue = 220 - 220 * value
-	const light = 42 + 6 * (1 - value)
+	const clamped = Math.max(0, Math.min(1, value))
+	const hue = 220 - 220 * clamped
+	const light = 42 + 6 * (1 - clamped)
 	return `hsl(${hue.toFixed(0)}, 70%, ${light.toFixed(0)}%)`
 }
 
-export default function Heatmap({ scores }: { scores: Record<string, number> }) {
+export default function Heatmap({
+	scores,
+	onSelect,
+	kind = "main",
+	title = "Score par numéro",
+	subtitle = "Fréquence, écart et simulation combinés pour chacun des 49 numéros.",
+	showSearch = true
+}: {
+	scores: Record<string, number>
+	onSelect?: (n: number, kind: NumberKind) => void
+	kind?: NumberKind
+	title?: string
+	subtitle?: string
+	showSearch?: boolean
+}) {
 	const [sortMode, setSortMode] = useState<SortMode>("number")
+	const [query, setQuery] = useState("")
 
 	const entries = useMemo(() => {
 		const list = Object.entries(scores).map(([num, val]) => ({ num: Number(num), val }))
@@ -22,12 +38,14 @@ export default function Heatmap({ scores }: { scores: Record<string, number> }) 
 		return list
 	}, [scores, sortMode])
 
+	const highlighted = query.trim() ? Number(query.trim()) : null
+
 	return (
-		<section className="card" aria-labelledby="heatmap-title">
+		<section className="card" aria-labelledby={`heatmap-title-${kind}`}>
 			<div className="card-header">
 				<div>
-					<h2 id="heatmap-title">Score par numéro</h2>
-					<p className="card-subtitle">Fréquence, écart et simulation combinés pour chacun des 49 numéros.</p>
+					<h2 id={`heatmap-title-${kind}`}>{title}</h2>
+					<p className="card-subtitle">{subtitle}</p>
 				</div>
 				<div className="segmented" role="group" aria-label="Trier la grille">
 					<button
@@ -47,18 +65,30 @@ export default function Heatmap({ scores }: { scores: Record<string, number> }) 
 				</div>
 			</div>
 
-			<div className="heatmap-grid" role="grid" aria-label="Score de chaque numéro du Loto">
+			{showSearch && (
+				<input
+					type="search"
+					inputMode="numeric"
+					placeholder={`Rechercher un numéro (1-${entries.length})…`}
+					className="search-input"
+					value={query}
+					onChange={e => setQuery(e.target.value.replace(/[^0-9]/g, ""))}
+					aria-label="Rechercher un numéro"
+				/>
+			)}
+
+			<div className="heatmap-grid" role="grid" aria-label="Score de chaque numéro">
 				{entries.map(({ num, val }) => (
-					<div
+					<button
 						key={num}
 						role="gridcell"
-						tabIndex={0}
-						className="heatmap-cell"
+						className={highlighted === num ? "heatmap-cell highlighted" : "heatmap-cell"}
 						style={{ background: scoreColor(val) }}
-						title={`Numéro ${num} — score ${(val * 100).toFixed(0)}%`}
+						title={`Numéro ${num} — score ${(val * 100).toFixed(0)}% — voir la fiche détaillée`}
+						onClick={() => onSelect?.(num, kind)}
 					>
 						{num}
-					</div>
+					</button>
 				))}
 			</div>
 

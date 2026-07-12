@@ -23,7 +23,12 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install -r data-pipeline/requirements.txt
+          pip install -r data-pipeline/requirements-dev.txt
+
+      - name: Test pipeline
+        run: |
+          cd data-pipeline
+          pytest -q
 
       - name: Generate data
         run: |
@@ -39,6 +44,11 @@ jobs:
         run: |
           cd frontend
           npm install
+
+      - name: Typecheck
+        run: |
+          cd frontend
+          npm run typecheck
 
       - name: Build
         run: |
