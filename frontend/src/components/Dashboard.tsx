@@ -85,7 +85,7 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 				)}
 				{tab === "historique" && <HistoryTab draws={data.draws} onSelect={onSelect} />}
 				{tab === "stats" && <StatsTab draws={data.draws} chanceScores={chanceScores} onSelect={onSelect} />}
-				{tab === "regles" && <RulesTab draws={data.draws} scores={scores} onSelect={onSelect} />}
+				{tab === "regles" && <RulesTab draws={data.draws} scores={scores} chanceScores={chanceScores} onSelect={onSelect} />}
 				{tab === "backtest" && <BacktestTab draws={data.draws} />}
 			</main>
 

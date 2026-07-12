@@ -4,33 +4,43 @@ export interface RuleConfig {
 	parity: ParityRule
 	avoidConsecutive: boolean
 	sumRange: [number, number] | null
+	includeNumbers: number[]
+	excludeNumbers: number[]
+	numberRange: [number, number] | null
+	lowHighCount: number | null
+	minScore: number | null
 }
 
 export const DEFAULT_RULES: RuleConfig = {
 	parity: "any",
 	avoidConsecutive: false,
-	sumRange: null
+	sumRange: null,
+	includeNumbers: [],
+	excludeNumbers: [],
+	numberRange: null,
+	lowHighCount: null,
+	minScore: null
 }
 
-function weightedSample(scores: Record<number, number>, poolSize: number, count: number): number[] {
-	const pool = Array.from({ length: poolSize }, (_, i) => i + 1)
-	const weights = pool.map(n => (scores[n] ?? 0) + 0.05)
+function weightedSampleFrom(pool: number[], scores: Record<number, number>, count: number): number[] {
+	const candidates = [...pool]
+	const weights = candidates.map(n => (scores[n] ?? 0) + 0.05)
 	const picked: number[] = []
 
-	for (let k = 0; k < count && pool.length > 0; k++) {
+	for (let k = 0; k < count && candidates.length > 0; k++) {
 		const total = weights.reduce((a, b) => a + b, 0)
 		let r = Math.random() * total
 		let idx = 0
-		for (; idx < pool.length; idx++) {
+		for (; idx < candidates.length; idx++) {
 			r -= weights[idx]
 			if (r <= 0) break
 		}
-		idx = Math.min(idx, pool.length - 1)
-		picked.push(pool[idx])
-		pool.splice(idx, 1)
+		idx = Math.min(idx, candidates.length - 1)
+		picked.push(candidates[idx])
+		candidates.splice(idx, 1)
 		weights.splice(idx, 1)
 	}
-	return picked.sort((a, b) => a - b)
+	return picked
 }
 
 export function satisfiesRules(numbers: number[], config: RuleConfig): boolean {
@@ -53,10 +63,28 @@ export function satisfiesRules(numbers: number[], config: RuleConfig): boolean {
 		if (sum < config.sumRange[0] || sum > config.sumRange[1]) return false
 	}
 
+	if (config.lowHighCount !== null) {
+		const lowCount = numbers.filter(n => n <= 25).length
+		if (lowCount !== config.lowHighCount) return false
+	}
+
+	for (const n of config.includeNumbers) {
+		if (!numbers.includes(n)) return false
+	}
+
+	for (const n of config.excludeNumbers) {
+		if (numbers.includes(n)) return false
+	}
+
 	return true
 }
 
-/** Weighted-random search for a 5-number grid satisfying `config`, biased by `scores`. */
+/**
+ * Weighted-random search for a grid satisfying `config`, biased by `scores`.
+ * Forced inclusions are seeded directly; the remaining slots are drawn from
+ * the eligible pool (range / exclusions / minimum score) and rejection-tested
+ * against the softer constraints (parity, sum, consecutive, low/high split).
+ */
 export function generateGrid(
 	scores: Record<number, number>,
 	config: RuleConfig,
@@ -64,11 +92,31 @@ export function generateGrid(
 	count = 5,
 	attempts = 3000
 ): number[] | null {
+	const include = [...new Set(config.includeNumbers)].filter(n => n >= 1 && n <= poolSize)
+	if (include.length > count) return null
+
+	const excludeSet = new Set(config.excludeNumbers)
+	const [rangeMin, rangeMax] = config.numberRange ?? [1, poolSize]
+
+	const eligiblePool = Array.from({ length: poolSize }, (_, i) => i + 1).filter(
+		n =>
+			!excludeSet.has(n) &&
+			!include.includes(n) &&
+			n >= rangeMin &&
+			n <= rangeMax &&
+			(config.minScore === null || (scores[n] ?? 0) >= config.minScore)
+	)
+
+	const remaining = count - include.length
+	if (eligiblePool.length < remaining) return null
+
 	let best: number[] | null = null
 	let bestScore = -Infinity
 
 	for (let i = 0; i < attempts; i++) {
-		const candidate = weightedSample(scores, poolSize, count)
+		const rest = weightedSampleFrom(eligiblePool, scores, remaining)
+		if (rest.length < remaining) continue
+		const candidate = [...include, ...rest].sort((a, b) => a - b)
 		if (!satisfiesRules(candidate, config)) continue
 		const candidateScore = candidate.reduce((a, n) => a + (scores[n] ?? 0), 0)
 		if (candidateScore > bestScore) {
@@ -77,6 +125,30 @@ export function generateGrid(
 		}
 	}
 	return best
+}
+
+/** Generates up to `count` distinct grids satisfying the same config (best-effort — duplicates allowed if the constraints are very tight). */
+export function generateDistinctGrids(
+	scores: Record<number, number>,
+	config: RuleConfig,
+	count: number,
+	poolSize = 49,
+	gridSize = 5,
+	attemptsPerGrid = 1500
+): number[][] {
+	const results: number[][] = []
+	const seen = new Set<string>()
+	const maxTries = count * 4
+
+	for (let i = 0; i < maxTries && results.length < count; i++) {
+		const grid = generateGrid(scores, config, poolSize, gridSize, attemptsPerGrid)
+		if (!grid) break
+		const key = grid.join(",")
+		if (seen.has(key) && results.length < maxTries - 1) continue
+		seen.add(key)
+		results.push(grid)
+	}
+	return results
 }
 
 export interface GridStrategy {

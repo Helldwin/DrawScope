@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { computeEcartScores, computeFrequencyScores } from "../lib/stats"
-import { generateMultipleGrids, type GridStrategy } from "../lib/rules"
+import { DEFAULT_RULES, generateMultipleGrids, type GridStrategy } from "../lib/rules"
 import type { Draw } from "../types"
 
 export default function MultiGridsCard({
@@ -23,28 +23,28 @@ export default function MultiGridsCard({
 				label: "Score composite",
 				description: "Combine fréquence, écart et simulation.",
 				scores: compositeScores,
-				rules: { parity: "any", avoidConsecutive: false, sumRange: null }
+				rules: DEFAULT_RULES
 			},
 			{
 				id: "hot",
 				label: "Numéros chauds",
 				description: "Privilégie les numéros les plus fréquents.",
 				scores: frequencyScores,
-				rules: { parity: "any", avoidConsecutive: false, sumRange: null }
+				rules: DEFAULT_RULES
 			},
 			{
 				id: "cold",
 				label: "Numéros froids",
 				description: "Privilégie les numéros en retard.",
 				scores: ecartScores,
-				rules: { parity: "any", avoidConsecutive: false, sumRange: null }
+				rules: DEFAULT_RULES
 			},
 			{
 				id: "balanced",
 				label: "Équilibrée",
 				description: "Parité équilibrée, sans numéros consécutifs.",
 				scores: compositeScores,
-				rules: { parity: "balanced", avoidConsecutive: true, sumRange: null }
+				rules: { ...DEFAULT_RULES, parity: "balanced", avoidConsecutive: true }
 			}
 		]
 	}, [draws, compositeScores, version])

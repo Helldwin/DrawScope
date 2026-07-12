@@ -701,6 +701,7 @@ body {
 }
 
 .rule-field select,
+.rule-field input[type="text"],
 .grid-checker-result select {
 	background: var(--bg-elevated);
 	border: 1px solid var(--border);
@@ -708,6 +709,20 @@ body {
 	border-radius: var(--radius-sm);
 	padding: 8px 10px;
 	font-size: 14px;
+}
+
+.rule-slider {
+	display: grid;
+	grid-template-columns: 1fr 2fr 48px;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 14px;
+	font-size: 13px;
+}
+
+.rule-slider input[type="range"] {
+	width: 100%;
+	accent-color: var(--accent);
 }
 
 .rule-checkbox {
@@ -744,6 +759,9 @@ body {
 
 .rule-result {
 	margin-top: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 /* Multi grids */
@@ -852,7 +870,8 @@ body {
 		font-size: 15px;
 	}
 
-	.weight-slider {
+	.weight-slider,
+	.rule-slider {
 		grid-template-columns: 1fr;
 		row-gap: 4px;
 	}
