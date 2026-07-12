@@ -1,6 +1,7 @@
 export interface RecentDraw {
 	date: string
 	numbers: number[]
+	chance: number
 }
 
 export interface DrawScopeData {

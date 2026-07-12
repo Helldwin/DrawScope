@@ -22,6 +22,7 @@ export default function RecentDraws({ draws }: { draws: RecentDraw[] }) {
 						{draw.numbers.map((n, i) => (
 							<span className="ball ball-sm" key={i}>{n}</span>
 						))}
+						<span className="ball ball-sm ball-chance" title="Numéro chance">{draw.chance}</span>
 					</span>
 				</li>
 			))}

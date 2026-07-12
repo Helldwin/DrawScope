@@ -196,6 +196,12 @@ body {
 	font-size: 13px;
 }
 
+.ball-chance {
+	background: linear-gradient(145deg, #f59e0b, #b45309);
+	box-shadow: 0 4px 10px rgba(180, 83, 9, 0.4);
+	margin-left: 6px;
+}
+
 .predictions-row {
 	display: flex;
 	flex-wrap: wrap;

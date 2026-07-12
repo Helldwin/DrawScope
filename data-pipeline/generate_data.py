@@ -111,7 +111,8 @@ recent_draws = []
 for date, row in df.tail(5).iterrows():
     recent_draws.append({
         "date": date.strftime("%Y-%m-%d"),
-        "numbers": row[numbers_columns].tolist()
+        "numbers": row[numbers_columns].tolist(),
+        "chance": int(row["numero_chance"])
     })
 
 # -----------------------
