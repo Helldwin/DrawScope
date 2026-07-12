@@ -1,39 +1,48 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Dashboard from "./components/Dashboard"
 import Loader from "./components/Loader"
+import type { DrawScopeData } from "./types"
+
+type Status = "loading" | "error" | "ready"
 
 export default function App() {
-	const [data, setData] = useState<any>(null)
-	const [error, setError] = useState(false)
+	const [data, setData] = useState<DrawScopeData | null>(null)
+	const [status, setStatus] = useState<Status>("loading")
 
-	useEffect(() => {
+	const loadData = useCallback(() => {
+		setStatus("loading")
 		fetch("data/data.json", { cache: "no-store" })
 			.then(res => {
-				if (!res.ok) throw new Error()
+				if (!res.ok) throw new Error(`HTTP ${res.status}`)
 				return res.json()
 			})
-			.then(setData)
+			.then((json: DrawScopeData) => {
+				setData(json)
+				setStatus("ready")
+			})
 			.catch(() => {
-				console.warn("Fallback mode")
-				setData({
-					scores: {},
-					predictions: [],
-					recent_draws: []
-				})
+				setStatus("error")
 			})
 	}, [])
 
+	useEffect(() => {
+		loadData()
+	}, [loadData])
 
-	if (error) {
+	if (status === "loading") return <Loader />
+
+	if (status === "error" || !data) {
 		return (
-			<div style={{ padding: 40, color: "white", background: "#111", minHeight: "100vh" }}>
-				<h1>⚠️ Données indisponibles</h1>
-				<p>Les statistiques seront mises à jour prochainement.</p>
+			<div className="state-screen">
+				<div className="state-card">
+					<span className="state-icon" aria-hidden="true">⚠️</span>
+					<h1>Données indisponibles</h1>
+					<p>Impossible de charger les statistiques pour le moment. Elles sont mises à jour chaque nuit.</p>
+					<button className="btn" onClick={loadData}>Réessayer</button>
+				</div>
 			</div>
 		)
 	}
-
-	if (!data) return <Loader />
 
 	return <Dashboard data={data} />
 }

@@ -23,7 +23,7 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install frenchlottery pandas numpy
+          pip install -r data-pipeline/requirements.txt
 
       - name: Generate data
         run: |

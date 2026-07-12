@@ -1,15 +1,10 @@
 export default function Loader() {
 	return (
-		<div style={{
-			background: "#0f172a",
-			color: "white",
-			minHeight: "100vh",
-			display: "flex",
-			justifyContent: "center",
-			alignItems: "center",
-			fontSize: "20px"
-		}}>
-			Chargement des statistiques...
+		<div className="state-screen">
+			<div className="state-card">
+				<div className="spinner" role="status" aria-label="Chargement" />
+				<p>Chargement des statistiques…</p>
+			</div>
 		</div>
 	)
 }

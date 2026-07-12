@@ -1,8 +1,13 @@
+import io
 import json
+import zipfile
 import numpy as np
 import pandas as pd
+import requests
 from datetime import datetime
-from frenchlottery import loto_helper
+
+# Archive officielle FDJ des tirages Loto (format en vigueur depuis nov. 2019).
+LOTO_ARCHIVE_URL = "https://www.sto.api.fdj.fr/anonymous/service-draw-info/v3/documentations/1a2b3c4d-9876-4562-b3fc-2c963f66afp6"
 
 # -----------------------
 # FETCH REAL LOTO DATA
@@ -10,10 +15,19 @@ from frenchlottery import loto_helper
 
 print("Fetching Loto history...")
 
-df = loto_helper.get_loto_results()
+response = requests.get(LOTO_ARCHIVE_URL, timeout=30)
+response.raise_for_status()
 
-# Colonnes : B1 B2 B3 B4 B5 S1
-numbers_columns = ["B1", "B2", "B3", "B4", "B5"]
+with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+    csv_name = archive.namelist()[0]
+    with archive.open(csv_name) as csv_file:
+        df = pd.read_csv(csv_file, sep=";", decimal=",")
+
+df["date_de_tirage"] = pd.to_datetime(df["date_de_tirage"], format="%d/%m/%Y")
+df = df.sort_values("date_de_tirage").set_index("date_de_tirage")
+
+# Colonnes : boule_1..boule_5, numero_chance
+numbers_columns = ["boule_1", "boule_2", "boule_3", "boule_4", "boule_5"]
 
 all_numbers = df[numbers_columns].values.flatten()
 
