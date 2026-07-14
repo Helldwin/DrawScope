@@ -19,7 +19,7 @@ export default function RulesTab({
 
 	return (
 		<>
-			<RuleBuilderCard scores={scores} chanceScores={chanceScores} onSelect={onSelect} />
+			<RuleBuilderCard draws={draws} scores={scores} chanceScores={chanceScores} onSelect={onSelect} />
 			<MultiGridsCard draws={draws} compositeScores={scores} onSelect={selectMain} />
 			<GridCheckerCard draws={draws} scores={scores} />
 		</>

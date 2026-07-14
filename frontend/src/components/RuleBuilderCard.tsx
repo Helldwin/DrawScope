@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { DEFAULT_RULES, generateDistinctGrids, type ParityRule, type RuleConfig } from "../lib/rules"
-import type { NumberKind } from "../lib/stats"
+import { computeEcartScores, computeFrequencyScores, type NumberKind } from "../lib/stats"
+import type { Draw } from "../types"
 
 const PARITY_OPTIONS: { id: ParityRule; label: string }[] = [
 	{ id: "any", label: "Indifférent" },
@@ -9,7 +10,18 @@ const PARITY_OPTIONS: { id: ParityRule; label: string }[] = [
 	{ id: "mostlyOdd", label: "Majorité impairs" }
 ]
 
-const LOW_HIGH_OPTIONS = [null, 0, 1, 2, 3, 4, 5]
+const LOW_HIGH_OPTIONS = [0, 1, 2, 3, 4, 5]
+
+type SortBy = "composite" | "frequency" | "ecart" | "uniform"
+
+const SORT_OPTIONS: { id: SortBy; label: string; description: string }[] = [
+	{ id: "composite", label: "Score composite", description: "Pondération actuelle (réglable dans l'onglet Aperçu)." },
+	{ id: "frequency", label: "Fréquence historique", description: "Privilégie les numéros les plus sortis." },
+	{ id: "ecart", label: "Écart (retard)", description: "Privilégie les numéros les plus en retard." },
+	{ id: "uniform", label: "Équitable (aucun biais)", description: "Tous les numéros ont la même chance d'être choisis." }
+]
+
+const MAX_GRIDS = 20
 
 function parseNumberList(input: string): number[] {
 	return input
@@ -18,11 +30,19 @@ function parseNumberList(input: string): number[] {
 		.filter(n => Number.isInteger(n) && n >= 1 && n <= 49)
 }
 
+function uniformScores(poolSize = 49): Record<number, number> {
+	const out: Record<number, number> = {}
+	for (let i = 1; i <= poolSize; i++) out[i] = 1
+	return out
+}
+
 export default function RuleBuilderCard({
+	draws,
 	scores,
 	chanceScores,
 	onSelect
 }: {
+	draws: Draw[]
 	scores: Record<number, number>
 	chanceScores: Record<number, number>
 	onSelect: (n: number, kind: NumberKind) => void
@@ -40,10 +60,24 @@ export default function RuleBuilderCard({
 	const [lowHighCount, setLowHighCount] = useState<number | null>(null)
 	const [minScorePct, setMinScorePct] = useState(0)
 	const [chanceMode, setChanceMode] = useState<"auto" | number>("auto")
+	const [sortBy, setSortBy] = useState<SortBy>("composite")
 	const [gridCount, setGridCount] = useState(1)
 
 	const [results, setResults] = useState<number[][] | null>(null)
 	const [error, setError] = useState<string | null>(null)
+
+	const rankingScores = useMemo(() => {
+		switch (sortBy) {
+			case "frequency":
+				return computeFrequencyScores(draws)
+			case "ecart":
+				return computeEcartScores(draws)
+			case "uniform":
+				return uniformScores()
+			default:
+				return scores
+		}
+	}, [sortBy, draws, scores])
 
 	const generate = () => {
 		const includeNumbers = parseNumberList(includeInput)
@@ -71,7 +105,8 @@ export default function RuleBuilderCard({
 			minScore: minScorePct > 0 ? minScorePct / 100 : null
 		}
 
-		const grids = generateDistinctGrids(scores, config, gridCount)
+		const count = Math.min(MAX_GRIDS, Math.max(1, gridCount || 1))
+		const grids = generateDistinctGrids(rankingScores, config, count)
 		setResults(grids)
 		setError(grids.length === 0 ? "Aucune combinaison ne satisfait ces critères après plusieurs essais — essaie de les assouplir." : null)
 	}
@@ -133,7 +168,7 @@ export default function RuleBuilderCard({
 					onChange={e => setLowHighCount(e.target.value === "any" ? null : Number(e.target.value))}
 				>
 					<option value="any">Indifférent</option>
-					{LOW_HIGH_OPTIONS.filter((v): v is number => v !== null).map(v => (
+					{LOW_HIGH_OPTIONS.map(v => (
 						<option key={v} value={v}>{v}</option>
 					))}
 				</select>
@@ -178,13 +213,25 @@ export default function RuleBuilderCard({
 			</div>
 
 			<div className="rule-field">
-				<label htmlFor="count-select">Nombre de grilles à générer</label>
-				<select id="count-select" value={gridCount} onChange={e => setGridCount(Number(e.target.value))}>
-					<option value={1}>1</option>
-					<option value={3}>3</option>
-					<option value={5}>5</option>
-					<option value={10}>10</option>
+				<label htmlFor="sortby-select">Classer les numéros par</label>
+				<select id="sortby-select" value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}>
+					{SORT_OPTIONS.map(o => (
+						<option key={o.id} value={o.id}>{o.label}</option>
+					))}
 				</select>
+				<span className="rule-hint">{SORT_OPTIONS.find(o => o.id === sortBy)?.description}</span>
+			</div>
+
+			<div className="rule-field">
+				<label htmlFor="count-input">Nombre de grilles à générer (max {MAX_GRIDS})</label>
+				<input
+					id="count-input"
+					type="number"
+					min={1}
+					max={MAX_GRIDS}
+					value={gridCount}
+					onChange={e => setGridCount(Math.min(MAX_GRIDS, Math.max(1, Number(e.target.value))))}
+				/>
 			</div>
 
 			<button className="btn" onClick={generate}>Générer</button>
