@@ -4,7 +4,9 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 3 * * *"
+    # 7h UTC ≈ 9h heure de Paris (8h en hiver) : les résultats FDJ de la veille
+    # ne sont pas toujours disponibles dès 5h, d'où le décalage vs 3h UTC avant.
+    - cron: "0 7 * * *"
 
 jobs:
   build:

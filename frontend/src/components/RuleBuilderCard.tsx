@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import InfoTooltip from "./InfoTooltip"
 import { DEFAULT_RULES, generateDistinctGrids, type ParityRule, type RuleConfig } from "../lib/rules"
 import { computeEcartScores, computeFrequencyScores, type NumberKind } from "../lib/stats"
 import type { Draw } from "../types"
@@ -53,6 +54,7 @@ export default function RuleBuilderCard({
 	const [sumMin, setSumMin] = useState(100)
 	const [sumMax, setSumMax] = useState(150)
 	const [includeInput, setIncludeInput] = useState("")
+	const [preferInput, setPreferInput] = useState("")
 	const [excludeInput, setExcludeInput] = useState("")
 	const [rangeEnabled, setRangeEnabled] = useState(false)
 	const [rangeMin, setRangeMin] = useState(1)
@@ -81,6 +83,7 @@ export default function RuleBuilderCard({
 
 	const generate = () => {
 		const includeNumbers = parseNumberList(includeInput)
+		const preferNumbers = parseNumberList(preferInput)
 		const excludeNumbers = parseNumberList(excludeInput)
 
 		if (includeNumbers.length > 5) {
@@ -88,8 +91,9 @@ export default function RuleBuilderCard({
 			setResults(null)
 			return
 		}
-		if (includeNumbers.some(n => excludeNumbers.includes(n))) {
-			setError("Un numéro ne peut pas être à la fois inclus et exclu.")
+		if (includeNumbers.some(n => excludeNumbers.includes(n)) ||
+			preferNumbers.some(n => excludeNumbers.includes(n))) {
+			setError("Un numéro ne peut pas être à la fois inclus/privilégié et exclu.")
 			setResults(null)
 			return
 		}
@@ -99,6 +103,7 @@ export default function RuleBuilderCard({
 			avoidConsecutive,
 			sumRange: sumEnabled ? [sumMin, sumMax] : null,
 			includeNumbers,
+			preferNumbers,
 			excludeNumbers,
 			numberRange: rangeEnabled ? [rangeMin, rangeMax] : null,
 			lowHighCount,
@@ -125,8 +130,19 @@ export default function RuleBuilderCard({
 			</div>
 
 			<div className="rule-field">
-				<label htmlFor="include-input">Numéros à inclure obligatoirement (max 5, séparés par une virgule)</label>
+				<label htmlFor="include-input">
+					Numéros à inclure obligatoirement (max 5, séparés par une virgule)
+					<InfoTooltip text="Ces numéros seront présents dans toutes les grilles générées, quoi qu'il arrive." />
+				</label>
 				<input id="include-input" type="text" placeholder="ex : 7, 23" value={includeInput} onChange={e => setIncludeInput(e.target.value)} />
+			</div>
+
+			<div className="rule-field">
+				<label htmlFor="prefer-input">
+					Numéros à privilégier (optionnels)
+					<InfoTooltip text="Ces numéros ont plus de chances d'apparaître dans les grilles générées, sans être garantis — contrairement à « inclure obligatoirement »." />
+				</label>
+				<input id="prefer-input" type="text" placeholder="ex : 5, 19, 34" value={preferInput} onChange={e => setPreferInput(e.target.value)} />
 			</div>
 
 			<div className="rule-field">
@@ -197,7 +213,10 @@ export default function RuleBuilderCard({
 			)}
 
 			<div className="rule-slider">
-				<span className="weight-name">Score minimum par numéro</span>
+				<span className="weight-name">
+					Score minimum par numéro
+					<InfoTooltip text="Écarte les numéros dont le score composite est inférieur à ce seuil, avant même de tenter de construire une grille." />
+				</span>
 				<input type="range" min={0} max={90} step={5} value={minScorePct} onChange={e => setMinScorePct(Number(e.target.value))} />
 				<span className="weight-value">{minScorePct}%</span>
 			</div>

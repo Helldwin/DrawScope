@@ -124,7 +124,7 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 			</main>
 
 			<footer className="page-footer">
-				<p>Source : tirages officiels FDJ. Données recalculées chaque nuit.</p>
+				<p>Source : tirages officiels FDJ. Données recalculées chaque matin, vers 9h.</p>
 			</footer>
 		</div>
 	)

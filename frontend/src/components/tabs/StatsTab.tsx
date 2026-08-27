@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import Heatmap from "../Heatmap"
+import InfoTooltip from "../InfoTooltip"
 import PeriodFilter from "../PeriodFilter"
 import Histogram, { bucketize } from "../charts/Histogram"
 import RatioBar from "../charts/RatioBar"
@@ -47,12 +48,18 @@ export default function StatsTab({
 			</section>
 
 			<section className="card">
-				<h3>Parité</h3>
+				<h3>
+					Parité
+					<InfoTooltip text="Sur les 5 numéros d'un tirage, combien sont pairs et combien sont impairs, cumulé sur la période sélectionnée." />
+				</h3>
 				<RatioBar leftLabel="Pairs" leftValue={parity.even} rightLabel="Impairs" rightValue={parity.odd} />
 			</section>
 
 			<section className="card">
-				<h3>Répartition 1-25 / 26-49</h3>
+				<h3>
+					Répartition 1-25 / 26-49
+					<InfoTooltip text="La plage des 49 numéros coupée en deux moitiés égales : combien de numéros tirés viennent de chaque moitié." />
+				</h3>
 				<RatioBar leftLabel="1 à 25" leftValue={highLow.low} rightLabel="26 à 49" rightValue={highLow.high} />
 			</section>
 
@@ -63,7 +70,10 @@ export default function StatsTab({
 			</section>
 
 			<section className="card">
-				<h3>Numéros consécutifs</h3>
+				<h3>
+					Numéros consécutifs
+					<InfoTooltip text="Deux numéros « qui se suivent » dans un tirage, par exemple 12 et 13. Utile pour juger si une grille avec des numéros consécutifs est courante ou non." />
+				</h3>
 				<p>
 					<strong>{consecutive.withConsecutive}</strong> tirages sur {consecutive.total} contiennent au moins deux numéros
 					qui se suivent ({Math.round(consecutive.ratio * 100)}%).
@@ -71,7 +81,10 @@ export default function StatsTab({
 			</section>
 
 			<section className="card">
-				<h3>Paires les plus fréquentes</h3>
+				<h3>
+					Paires les plus fréquentes
+					<InfoTooltip text="Les couples de numéros les plus souvent sortis ensemble dans le même tirage, sur la période sélectionnée." />
+				</h3>
 				{pairs.length === 0 ? (
 					<p className="empty-hint">Pas assez de données sur cette période.</p>
 				) : (

@@ -5,6 +5,7 @@ export interface RuleConfig {
 	avoidConsecutive: boolean
 	sumRange: [number, number] | null
 	includeNumbers: number[]
+	preferNumbers: number[]
 	excludeNumbers: number[]
 	numberRange: [number, number] | null
 	lowHighCount: number | null
@@ -16,11 +17,15 @@ export const DEFAULT_RULES: RuleConfig = {
 	avoidConsecutive: false,
 	sumRange: null,
 	includeNumbers: [],
+	preferNumbers: [],
 	excludeNumbers: [],
 	numberRange: null,
 	lowHighCount: null,
 	minScore: null
 }
+
+/** Additive score bonus applied to "preferred" numbers so they're more likely to be picked without being forced into every grid. */
+const PREFER_BOOST = 0.3
 
 function weightedSampleFrom(pool: number[], scores: Record<number, number>, count: number): number[] {
 	const candidates = [...pool]
@@ -95,6 +100,12 @@ export function generateGrid(
 	const include = [...new Set(config.includeNumbers)].filter(n => n >= 1 && n <= poolSize)
 	if (include.length > count) return null
 
+	const preferSet = new Set(config.preferNumbers)
+	const boostedScores: Record<number, number> = { ...scores }
+	for (const n of preferSet) {
+		boostedScores[n] = (scores[n] ?? 0) + PREFER_BOOST
+	}
+
 	const excludeSet = new Set(config.excludeNumbers)
 	const [rangeMin, rangeMax] = config.numberRange ?? [1, poolSize]
 
@@ -114,11 +125,11 @@ export function generateGrid(
 	let bestScore = -Infinity
 
 	for (let i = 0; i < attempts; i++) {
-		const rest = weightedSampleFrom(eligiblePool, scores, remaining)
+		const rest = weightedSampleFrom(eligiblePool, boostedScores, remaining)
 		if (rest.length < remaining) continue
 		const candidate = [...include, ...rest].sort((a, b) => a - b)
 		if (!satisfiesRules(candidate, config)) continue
-		const candidateScore = candidate.reduce((a, n) => a + (scores[n] ?? 0), 0)
+		const candidateScore = candidate.reduce((a, n) => a + (boostedScores[n] ?? 0), 0)
 		if (candidateScore > bestScore) {
 			bestScore = candidateScore
 			best = candidate

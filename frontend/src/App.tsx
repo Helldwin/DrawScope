@@ -37,7 +37,7 @@ export default function App() {
 				<div className="state-card">
 					<span className="state-icon" aria-hidden="true">⚠️</span>
 					<h1>Données indisponibles</h1>
-					<p>Impossible de charger les statistiques pour le moment. Elles sont mises à jour chaque nuit.</p>
+					<p>Impossible de charger les statistiques pour le moment. Elles sont mises à jour chaque matin.</p>
 					<button className="btn" onClick={loadData}>Réessayer</button>
 				</div>
 			</div>
