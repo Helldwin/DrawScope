@@ -55,7 +55,7 @@ export default function MultiGridsCard({
 		<section className="card" aria-labelledby="multigrids-title">
 			<div className="card-header">
 				<div>
-					<h2 id="multigrids-title">Grilles multiples</h2>
+					<h2 id="multigrids-title">Flash Stratégique</h2>
 					<p className="card-subtitle">Plusieurs stratégies différentes, à titre de comparaison.</p>
 				</div>
 				<button className="btn-ghost" onClick={() => setVersion(v => v + 1)}>Régénérer</button>

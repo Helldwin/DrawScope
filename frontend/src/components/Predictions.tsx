@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { addSavedGrid, isGridSaved, loadSavedGrids } from "../lib/myGrids"
 import type { NumberKind } from "../lib/stats"
 
 export default function Predictions({
@@ -13,6 +14,12 @@ export default function Predictions({
 	onSelect?: (n: number, kind: NumberKind) => void
 }) {
 	const [copied, setCopied] = useState(false)
+	const [saved, setSaved] = useState(false)
+
+	useEffect(() => {
+		setSaved(isGridSaved(numbers, loadSavedGrids()))
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [numbers.join(",")])
 
 	if (numbers.length === 0) {
 		return <p className="empty-hint">Aucune prédiction disponible pour le moment.</p>
@@ -34,6 +41,11 @@ export default function Predictions({
 		setTimeout(() => setCopied(false), 2000)
 	}
 
+	const save = () => {
+		addSavedGrid(numbers, chanceNumber)
+		setSaved(true)
+	}
+
 	return (
 		<section className="card" aria-labelledby="predictions-title">
 			<div className="card-header">
@@ -41,7 +53,10 @@ export default function Predictions({
 					<h2 id="predictions-title">🎯 Combinaison suggérée</h2>
 					<p className="card-subtitle">Les 5 numéros au score composite le plus élevé.</p>
 				</div>
-				<button className="btn-ghost" onClick={share}>{copied ? "Copié !" : "Partager"}</button>
+				<div className="card-header-actions">
+					<button className="btn-ghost save-grid-btn" onClick={save} disabled={saved}>{saved ? "★ Enregistrée" : "☆ Enregistrer"}</button>
+					<button className="btn-ghost" onClick={share}>{copied ? "Copié !" : "Partager"}</button>
+				</div>
 			</div>
 
 			<div className="predictions-row">

@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
+import ArchiveTab from "./ArchiveTab"
+import { BacktestIcon, BookmarkIcon, GiftIcon, HistoryIcon, OverviewIcon, RulesIcon, StarIcon, StatsIcon } from "./icons/TabIcons"
 import NumberDetailPage from "./NumberDetailPage"
 import TabNav, { type TabDef } from "./TabNav"
 import BacktestTab from "./tabs/BacktestTab"
 import HistoryTab from "./tabs/HistoryTab"
+import MyGridsTab from "./tabs/MyGridsTab"
 import OverviewTab from "./tabs/OverviewTab"
 import RulesTab from "./tabs/RulesTab"
 import StatsTab from "./tabs/StatsTab"
+import { mergeHistoryEntries } from "../lib/history"
 import {
 	DEFAULT_WEIGHTS,
 	computeChanceScores,
@@ -14,15 +18,21 @@ import {
 	type NumberKind,
 	type Weights
 } from "../lib/stats"
-import type { DrawScopeData } from "../types"
+import { useLazyJson } from "../lib/useLazyJson"
+import type { Draw, DrawScopeData, LegacyDraw, SuperLotoArchive, WinnersByDate } from "../types"
 
 const TABS: TabDef[] = [
-	{ id: "apercu", label: "Aperçu" },
-	{ id: "historique", label: "Historique" },
-	{ id: "stats", label: "Statistiques" },
-	{ id: "regles", label: "Règles & Grilles" },
-	{ id: "backtest", label: "Backtest" }
+	{ id: "apercu", label: "Aperçu", icon: <OverviewIcon /> },
+	{ id: "historique", label: "Historique", icon: <HistoryIcon /> },
+	{ id: "stats", label: "Statistiques", icon: <StatsIcon /> },
+	{ id: "regles", label: "Règles & Grilles", icon: <RulesIcon /> },
+	{ id: "mes-grilles", label: "Mes grilles", icon: <BookmarkIcon /> },
+	{ id: "backtest", label: "Backtest", icon: <BacktestIcon /> },
+	{ id: "super-loto", label: "Super Loto", icon: <StarIcon /> },
+	{ id: "grand-loto", label: "Grand Loto", icon: <GiftIcon /> }
 ]
+
+const TAB_LABELS: Record<string, string> = Object.fromEntries(TABS.map(t => [t.id, t.label]))
 
 type Selected = { number: number; kind: NumberKind } | null
 
@@ -60,6 +70,18 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 	const predictions = useMemo(() => topPredictions(scores, 5), [scores])
 	const chancePrediction = useMemo(() => topPredictions(chanceScores, 1)[0] ?? null, [chanceScores])
 
+	// Lazily fetched the first time their tab is opened, then cached for the session.
+	const preHistoryLoto = useLazyJson<LegacyDraw[]>("data/archive-loto-pre2008.json", tab === "historique")
+	const winnersByDate = useLazyJson<WinnersByDate>("data/winners.json", tab === "historique")
+	const superLotoArchive = useLazyJson<SuperLotoArchive>("data/archive-super-loto.json", tab === "super-loto")
+	const grandLoto = useLazyJson<Draw[]>("data/archive-grand-loto.json", tab === "grand-loto")
+
+	const superLotoEntries = useMemo(
+		() => (superLotoArchive ? mergeHistoryEntries(superLotoArchive.modern, superLotoArchive.legacy) : null),
+		[superLotoArchive]
+	)
+	const grandLotoEntries = useMemo(() => (grandLoto ? mergeHistoryEntries(grandLoto) : null), [grandLoto])
+
 	const onSelect = (number: number, kind: NumberKind) => setSelected({ number, kind })
 	const onTabChange = (id: string) => {
 		setSelected(null)
@@ -72,12 +94,17 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 
 	return (
 		<div className="page">
+			<a className="skip-link" href="#main-content">Aller au contenu</a>
+
 			<header className="page-header">
 				<div>
 					<h1>DrawScope</h1>
 					<p className="tagline">Analyse statistique des tirages du Loto FDJ</p>
 				</div>
-				<span className="update-badge">Mise à jour : {formattedUpdate}</span>
+				<div className="header-stats">
+					<span className="stat-chip">{data.draws.length.toLocaleString("fr-FR")} tirages analysés</span>
+					<span className="stat-chip">Mise à jour : {formattedUpdate}</span>
+				</div>
 			</header>
 
 			<details className="methodology">
@@ -90,8 +117,11 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 			</details>
 
 			<TabNav tabs={TABS} active={tab} onChange={onTabChange} />
+			<p className="sr-only" role="status" aria-live="polite">
+				{selected ? `Fiche numéro ${selected.number}` : `Onglet actif : ${TAB_LABELS[tab] ?? tab}`}
+			</p>
 
-			<main className="page-main">
+			<main className="page-main" id="main-content">
 				{selected ? (
 					<NumberDetailPage
 						number={selected.number}
@@ -102,7 +132,7 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 						onBack={() => setSelected(null)}
 					/>
 				) : (
-					<>
+					<div className="tab-content" key={tab}>
 						{tab === "apercu" && (
 							<OverviewTab
 								draws={data.draws}
@@ -115,16 +145,36 @@ export default function Dashboard({ data }: { data: DrawScopeData }) {
 								onNavigateHistory={() => setTab("historique")}
 							/>
 						)}
-						{tab === "historique" && <HistoryTab draws={data.draws} onSelect={onSelect} />}
+						{tab === "historique" && (
+							<HistoryTab draws={data.draws} onSelect={onSelect} preHistoryLoto={preHistoryLoto} winnersByDate={winnersByDate} />
+						)}
 						{tab === "stats" && <StatsTab draws={data.draws} chanceScores={chanceScores} onSelect={onSelect} />}
 						{tab === "regles" && <RulesTab draws={data.draws} scores={scores} chanceScores={chanceScores} onSelect={onSelect} />}
-						{tab === "backtest" && <BacktestTab draws={data.draws} />}
-					</>
+						{tab === "mes-grilles" && <MyGridsTab draws={data.draws} onSelect={onSelect} />}
+						{tab === "backtest" && <BacktestTab draws={data.draws} scores={scores} chanceScores={chanceScores} />}
+						{tab === "super-loto" && (
+							<ArchiveTab
+								titleId="super-loto-title"
+								title="Super Loto"
+								subtitle="Tirages exceptionnels à jackpot renforcé, en dehors du calendrier régulier — non inclus dans les statistiques ni le simulateur."
+								entries={superLotoEntries}
+							/>
+						)}
+						{tab === "grand-loto" && (
+							<ArchiveTab
+								titleId="grand-loto-title"
+								title="Grand Loto"
+								subtitle="Éditions spéciales de fin d'année (Loto de Noël, Grand Loto), non incluses dans les statistiques ni le simulateur."
+								entries={grandLotoEntries}
+							/>
+						)}
+					</div>
 				)}
 			</main>
 
 			<footer className="page-footer">
 				<p>Source : tirages officiels FDJ. Données recalculées chaque matin, vers 9h.</p>
+				<p className="footer-meta">DrawScope — outil d'analyse statistique, sans garantie de gain.</p>
 			</footer>
 		</div>
 	)

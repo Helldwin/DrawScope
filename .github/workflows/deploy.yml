@@ -36,6 +36,7 @@ jobs:
         run: |
           cd data-pipeline
           python generate_data.py
+          python generate_archives.py
 
       - name: Setup Node
         uses: actions/setup-node@v3

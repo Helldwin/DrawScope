@@ -264,6 +264,120 @@ export function computeTopPairs(draws: Draw[], topN = 10): PairStat[] {
 		})
 }
 
+export interface DecadeBucket {
+	label: string
+	count: number
+}
+
+const DECADE_RANGES: [number, number][] = [[1, 9], [10, 19], [20, 29], [30, 39], [40, 49]]
+
+/** How the 5 numbers of each draw split across the five "decades" of the 1-49 pool. */
+export function computeDecadeDistribution(draws: Draw[]): DecadeBucket[] {
+	return DECADE_RANGES.map(([min, max]) => ({
+		label: `${min}-${max}`,
+		count: draws.reduce((total, d) => total + d.numbers.filter(n => n >= min && n <= max).length, 0)
+	}))
+}
+
+export interface FrequencyExtreme {
+	number: number
+	count: number
+}
+
+export function computeFrequencyExtremes(
+	draws: Draw[],
+	topN = 5,
+	poolSize = POOL_SIZE,
+	pick: (d: Draw) => number[] = mainPick
+): { top: FrequencyExtreme[]; bottom: FrequencyExtreme[] } {
+	const entries = Object.entries(computeFrequency(draws, poolSize, pick)).map(([n, count]) => ({ number: Number(n), count }))
+	const byCountDesc = [...entries].sort((a, b) => b.count - a.count || a.number - b.number)
+	const byCountAsc = [...entries].sort((a, b) => a.count - b.count || a.number - b.number)
+	return { top: byCountDesc.slice(0, topN), bottom: byCountAsc.slice(0, topN) }
+}
+
+export interface EcartLeader {
+	number: number
+	days: number
+}
+
+/** The number currently on the longest streak without appearing. */
+export function computeCurrentEcartLeader(
+	draws: Draw[],
+	poolSize = POOL_SIZE,
+	pick: (d: Draw) => number[] = mainPick
+): EcartLeader | null {
+	const entries = Object.entries(computeEcartDays(draws, poolSize, pick)).map(([n, days]) => ({ number: Number(n), days }))
+	if (entries.length === 0) return null
+	return entries.reduce((best, e) => (e.days > best.days ? e : best))
+}
+
+export interface EcartRecord extends EcartLeader {
+	endDate: string | null
+}
+
+/** The single longest gap ever observed for any number in the pool, with the date it ended (null if it's the still-ongoing current gap). */
+export function computeHistoricalEcartRecord(
+	draws: Draw[],
+	poolSize = POOL_SIZE,
+	pick: (d: Draw) => number[] = mainPick
+): EcartRecord | null {
+	const sorted = sortByDate(draws)
+	const referenceDate = sorted[sorted.length - 1]?.date
+	if (!referenceDate) return null
+
+	let best: EcartRecord | null = null
+	for (let number = 1; number <= poolSize; number++) {
+		const appearances = sorted.filter(d => pick(d).includes(number))
+		if (appearances.length === 0) continue
+
+		for (let i = 1; i < appearances.length; i++) {
+			const days = daysBetween(appearances[i - 1].date, appearances[i].date)
+			if (!best || days > best.days) best = { number, days, endDate: appearances[i].date }
+		}
+
+		const current = daysBetween(appearances[appearances.length - 1].date, referenceDate)
+		if (!best || current > best.days) best = { number, days: current, endDate: null }
+	}
+	return best
+}
+
+export interface TripletStat {
+	a: number
+	b: number
+	c: number
+	count: number
+}
+
+export function computeTopTriplets(draws: Draw[], topN = 10): TripletStat[] {
+	const counts = new Map<string, number>()
+	for (const d of draws) {
+		const sorted = [...d.numbers].sort((a, b) => a - b)
+		for (let i = 0; i < sorted.length; i++) {
+			for (let j = i + 1; j < sorted.length; j++) {
+				for (let k = j + 1; k < sorted.length; k++) {
+					const key = `${sorted[i]}-${sorted[j]}-${sorted[k]}`
+					counts.set(key, (counts.get(key) ?? 0) + 1)
+				}
+			}
+		}
+	}
+	return [...counts.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, topN)
+		.map(([key, count]) => {
+			const [a, b, c] = key.split("-").map(Number)
+			return { a, b, c, count }
+		})
+}
+
+export function computeSumStats(draws: Draw[]): { min: number; max: number; average: number } {
+	const sums = computeSumDistribution(draws)
+	if (sums.length === 0) return { min: 0, max: 0, average: 0 }
+	const total = sums.reduce((a, b) => a + b, 0)
+	return { min: Math.min(...sums), max: Math.max(...sums), average: Math.round(total / sums.length) }
+}
+
 export function computeMonteCarloScores(
 	draws: Draw[],
 	poolSize = POOL_SIZE,
