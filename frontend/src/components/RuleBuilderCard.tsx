@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import InfoTooltip from "./InfoTooltip"
 import NumberPicker, { EMPTY_SELECTION, type NumberSelection } from "./NumberPicker"
-import { DEFAULT_RULES, generateDistinctGrids, type ParityRule, type RuleConfig } from "../lib/rules"
+import { DEFAULT_RULES, generateAllValidGrids, generateDistinctGrids, type ParityRule, type RuleConfig } from "../lib/rules"
 import { addSavedGrid } from "../lib/myGrids"
 import { computeEcartScores, computeFrequencyScores, type NumberKind } from "../lib/stats"
 import type { Draw } from "../types"
@@ -24,7 +24,15 @@ const SORT_OPTIONS: { id: SortBy; label: string; description: string }[] = [
 	{ id: "uniform", label: "Équitable (aucun biais)", description: "Tous les numéros ont la même chance d'être choisis." }
 ]
 
+type Mode = "deterministic" | "random"
+
+const MODE_OPTIONS: { id: Mode; label: string; description: string }[] = [
+	{ id: "deterministic", label: "Déterministe (meilleur score)", description: "Toujours les mêmes grilles pour les mêmes réglages, classées par score." },
+	{ id: "random", label: "Aléatoire pondéré (variété)", description: "Tirage pondéré par le score — change à chaque génération, pour varier les combinaisons." }
+]
+
 const MAX_GRIDS = 20
+const KEEP_COUNT = 200
 
 function uniformScores(poolSize = 49): Record<number, number> {
 	const out: Record<number, number> = {}
@@ -57,8 +65,12 @@ export default function RuleBuilderCard({
 	const [chanceMode, setChanceMode] = useState<"auto" | number>("auto")
 	const [sortBy, setSortBy] = useState<SortBy>("composite")
 	const [gridCount, setGridCount] = useState(1)
+	const [mode, setMode] = useState<Mode>("deterministic")
 
+	const [running, setRunning] = useState(false)
 	const [results, setResults] = useState<number[][] | null>(null)
+	const [totalValid, setTotalValid] = useState<number | null>(null)
+	const [visibleCount, setVisibleCount] = useState(1)
 	const [error, setError] = useState<string | null>(null)
 	const [savedIndices, setSavedIndices] = useState<Set<number>>(new Set())
 
@@ -87,12 +99,29 @@ export default function RuleBuilderCard({
 			lowHighCount,
 			minScore: minScorePct > 0 ? minScorePct / 100 : null
 		}
-
 		const count = Math.min(MAX_GRIDS, Math.max(1, gridCount || 1))
-		const grids = generateDistinctGrids(rankingScores, config, count)
-		setResults(grids)
+
+		setRunning(true)
 		setSavedIndices(new Set())
-		setError(grids.length === 0 ? "Aucune combinaison ne satisfait ces critères après plusieurs essais — essaie de les assouplir." : null)
+		// Deferred so the "Calcul en cours…" state actually paints before the
+		// (synchronous, CPU-bound) search runs — the deterministic mode can scan
+		// the full combination space.
+		setTimeout(() => {
+			if (mode === "deterministic") {
+				const { grids, totalValid: valid } = generateAllValidGrids(rankingScores, config, 49, 5, KEEP_COUNT)
+				setResults(grids.map(g => g.combination))
+				setTotalValid(valid)
+				setVisibleCount(Math.min(count, grids.length))
+				setError(grids.length === 0 ? "Aucune combinaison ne satisfait ces critères — essaie de les assouplir." : null)
+			} else {
+				const grids = generateDistinctGrids(rankingScores, config, count)
+				setResults(grids)
+				setTotalValid(null)
+				setVisibleCount(grids.length)
+				setError(grids.length === 0 ? "Aucune combinaison ne satisfait ces critères après plusieurs essais — essaie de les assouplir." : null)
+			}
+			setRunning(false)
+		}, 30)
 	}
 
 	const chanceNumber = chanceMode === "auto"
@@ -103,6 +132,9 @@ export default function RuleBuilderCard({
 		addSavedGrid(grid, chanceNumber ? Number(chanceNumber) : null)
 		setSavedIndices(prev => new Set(prev).add(index))
 	}
+
+	const visibleResults = results?.slice(0, visibleCount) ?? []
+	const canExpand = mode === "deterministic" && !!results && visibleCount < results.length
 
 	return (
 		<section className="card" aria-labelledby="rules-title">
@@ -223,6 +255,20 @@ export default function RuleBuilderCard({
 
 			<div className="section-block rule-generate">
 				<h3 className="section-title">4. Génération</h3>
+
+				<div className="rule-field">
+					<label htmlFor="mode-select">
+						Mode de génération
+						<InfoTooltip text="Déterministe : reproductible, prend les meilleures grilles possibles par score. Aléatoire pondéré : tirage au sort biaisé par le score, différent à chaque génération, pour varier les combinaisons." />
+					</label>
+					<select id="mode-select" value={mode} onChange={e => setMode(e.target.value as Mode)}>
+						{MODE_OPTIONS.map(o => (
+							<option key={o.id} value={o.id}>{o.label}</option>
+						))}
+					</select>
+					<span className="rule-hint">{MODE_OPTIONS.find(o => o.id === mode)?.description}</span>
+				</div>
+
 				<div className="rule-generate-row">
 					<div className="rule-field rule-count-field">
 						<label htmlFor="count-input">Nombre de grilles (max {MAX_GRIDS})</label>
@@ -235,15 +281,17 @@ export default function RuleBuilderCard({
 							onChange={e => setGridCount(Math.min(MAX_GRIDS, Math.max(1, Number(e.target.value))))}
 						/>
 					</div>
-					<button className="btn btn-generate" onClick={generate}>Générer</button>
+					<button className="btn btn-generate" onClick={generate} disabled={running}>
+						{running ? "Calcul en cours…" : "Générer"}
+					</button>
 				</div>
 			</div>
 
 			{error && <p className="empty-hint">{error}</p>}
 
-			{results && results.length > 0 && (
+			{visibleResults.length > 0 && (
 				<div className="rule-result">
-					{results.map((grid, i) => (
+					{visibleResults.map((grid, i) => (
 						<div className="rule-result-item" key={i}>
 							<div className="predictions-row rule-result-row">
 								{grid.map((n, j) => (
@@ -263,6 +311,18 @@ export default function RuleBuilderCard({
 							</button>
 						</div>
 					))}
+				</div>
+			)}
+
+			{mode === "deterministic" && totalValid !== null && results && results.length > 0 && (
+				<div className="rule-expand">
+					<button className="btn-ghost" onClick={() => setVisibleCount(canExpand ? results.length : Math.min(gridCount, results.length))}>
+						{visibleCount} grille{visibleCount > 1 ? "s" : ""} affichée{visibleCount > 1 ? "s" : ""} sur {totalValid.toLocaleString("fr-FR")}
+						{" "}combinaison{totalValid > 1 ? "s" : ""} valide{totalValid > 1 ? "s" : ""} — {canExpand ? "tout afficher" : "réduire"}
+					</button>
+					{totalValid > results.length && (
+						<span className="rule-hint">(les {results.length} meilleures conservées sur {totalValid.toLocaleString("fr-FR")} au total)</span>
+					)}
 				</div>
 			)}
 		</section>

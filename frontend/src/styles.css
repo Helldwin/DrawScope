@@ -1212,6 +1212,14 @@ body {
 	padding-bottom: 0;
 }
 
+.rule-expand {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 6px;
+	margin-top: 16px;
+}
+
 /* Card sections (used across cards to group related fields/stats) */
 
 .section-block {

@@ -138,6 +138,93 @@ export function generateGrid(
 	return best
 }
 
+function* combinationsOf(pool: number[], k: number): Generator<number[]> {
+	const n = pool.length
+	if (k === 0) {
+		yield []
+		return
+	}
+	if (k > n) return
+	const indices = Array.from({ length: k }, (_, i) => i)
+	while (true) {
+		yield indices.map(i => pool[i])
+		let i = k - 1
+		while (i >= 0 && indices[i] === n - k + i) i--
+		if (i < 0) return
+		indices[i]++
+		for (let j = i + 1; j < k; j++) indices[j] = indices[j - 1] + 1
+	}
+}
+
+export interface RankedGrid {
+	combination: number[]
+	scoreSum: number
+}
+
+export interface DeterministicGridsResult {
+	grids: RankedGrid[]
+	totalValid: number
+}
+
+/**
+ * Deterministic counterpart to `generateGrid`: exhaustively enumerates every grid satisfying
+ * `config` from the eligible pool (instead of weighted-random sampling), ranked by summed score.
+ * Same inputs always produce the same result. `keepCount` bounds how many of the best are kept in
+ * memory — the eligible space can reach the full 49-choose-5 (~1.9M) when no constraint narrows it.
+ */
+export function generateAllValidGrids(
+	scores: Record<number, number>,
+	config: RuleConfig,
+	poolSize = 49,
+	count = 5,
+	keepCount = 200
+): DeterministicGridsResult {
+	const include = [...new Set(config.includeNumbers)].filter(n => n >= 1 && n <= poolSize)
+	if (include.length > count) return { grids: [], totalValid: 0 }
+
+	const preferSet = new Set(config.preferNumbers)
+	const boostedScores: Record<number, number> = { ...scores }
+	for (const n of preferSet) {
+		boostedScores[n] = (scores[n] ?? 0) + PREFER_BOOST
+	}
+
+	const excludeSet = new Set(config.excludeNumbers)
+	const [rangeMin, rangeMax] = config.numberRange ?? [1, poolSize]
+
+	const eligiblePool = Array.from({ length: poolSize }, (_, i) => i + 1).filter(
+		n =>
+			!excludeSet.has(n) &&
+			!include.includes(n) &&
+			n >= rangeMin &&
+			n <= rangeMax &&
+			(config.minScore === null || (scores[n] ?? 0) >= config.minScore)
+	)
+
+	const remaining = count - include.length
+	if (eligiblePool.length < remaining) return { grids: [], totalValid: 0 }
+
+	const includeScore = include.reduce((a, n) => a + (boostedScores[n] ?? 0), 0)
+
+	let totalValid = 0
+	const top: RankedGrid[] = []
+
+	for (const rest of combinationsOf(eligiblePool, remaining)) {
+		const candidate = [...include, ...rest].sort((a, b) => a - b)
+		if (!satisfiesRules(candidate, config)) continue
+		totalValid++
+		const scoreSum = includeScore + rest.reduce((a, n) => a + (boostedScores[n] ?? 0), 0)
+		if (top.length < keepCount) {
+			top.push({ combination: candidate, scoreSum })
+			if (top.length === keepCount) top.sort((a, b) => a.scoreSum - b.scoreSum)
+		} else if (scoreSum > top[0].scoreSum) {
+			top[0] = { combination: candidate, scoreSum }
+			top.sort((a, b) => a.scoreSum - b.scoreSum)
+		}
+	}
+
+	return { grids: top.sort((a, b) => b.scoreSum - a.scoreSum), totalValid }
+}
+
 /** Generates up to `count` distinct grids satisfying the same config (best-effort — duplicates allowed if the constraints are very tight). */
 export function generateDistinctGrids(
 	scores: Record<number, number>,
