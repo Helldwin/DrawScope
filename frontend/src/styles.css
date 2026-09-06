@@ -1487,6 +1487,21 @@ body {
 	gap: 6px;
 }
 
+.rule-result-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.eliminate-grid-btn {
+	color: var(--text-muted);
+}
+
+.eliminate-grid-btn:hover {
+	color: #ef4444;
+	border-color: #ef4444;
+}
+
 /* History pagination */
 
 .history-list {

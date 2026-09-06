@@ -6,6 +6,7 @@ export interface RuleConfig {
 	sumRange: [number, number] | null
 	includeNumbers: number[]
 	preferNumbers: number[]
+	preferMinCount: number | null
 	excludeNumbers: number[]
 	numberRange: [number, number] | null
 	lowHighCount: number | null
@@ -18,6 +19,7 @@ export const DEFAULT_RULES: RuleConfig = {
 	sumRange: null,
 	includeNumbers: [],
 	preferNumbers: [],
+	preferMinCount: null,
 	excludeNumbers: [],
 	numberRange: null,
 	lowHighCount: null,
@@ -79,6 +81,11 @@ export function satisfiesRules(numbers: number[], config: RuleConfig): boolean {
 
 	for (const n of config.excludeNumbers) {
 		if (numbers.includes(n)) return false
+	}
+
+	if (config.preferMinCount !== null && config.preferMinCount > 0) {
+		const preferredInGrid = numbers.filter(n => config.preferNumbers.includes(n)).length
+		if (preferredInGrid < config.preferMinCount) return false
 	}
 
 	return true
@@ -166,11 +173,49 @@ export interface DeterministicGridsResult {
 	totalValid: number
 }
 
+function overlapCount(a: number[], b: number[]): number {
+	let count = 0
+	for (const n of a) if (b.includes(n)) count++
+	return count
+}
+
+/**
+ * Greedily picks `keepCount` grids out of `candidates` (already sorted best-first), favoring
+ * coverage of the number pool over raw score: a candidate is skipped while it shares too many
+ * numbers with an already-picked grid, with the "too many" threshold relaxed a step at a time
+ * until enough grids are found. This is what keeps the displayed set from being five near-identical
+ * permutations of the same handful of top-scoring numbers.
+ */
+function selectDiverse(candidates: RankedGrid[], keepCount: number, gridSize: number): RankedGrid[] {
+	const selected: RankedGrid[] = []
+	const consumed = new Array<boolean>(candidates.length).fill(false)
+
+	for (let maxOverlap = 0; selected.length < keepCount && maxOverlap < gridSize; maxOverlap++) {
+		for (let i = 0; i < candidates.length && selected.length < keepCount; i++) {
+			if (consumed[i]) continue
+			const candidate = candidates[i]
+			const tooSimilar = selected.some(s => overlapCount(s.combination, candidate.combination) > maxOverlap)
+			if (!tooSimilar) {
+				selected.push(candidate)
+				consumed[i] = true
+			}
+		}
+	}
+
+	for (let i = 0; i < candidates.length && selected.length < keepCount; i++) {
+		if (!consumed[i]) selected.push(candidates[i])
+	}
+
+	return selected
+}
+
 /**
  * Deterministic counterpart to `generateGrid`: exhaustively enumerates every grid satisfying
- * `config` from the eligible pool (instead of weighted-random sampling), ranked by summed score.
- * Same inputs always produce the same result. `keepCount` bounds how many of the best are kept in
- * memory — the eligible space can reach the full 49-choose-5 (~1.9M) when no constraint narrows it.
+ * `config` from the eligible pool (instead of weighted-random sampling), ranked by summed score,
+ * then re-ranked for diversity so the kept set spreads across the number pool instead of clustering
+ * around minor permutations of the same top numbers. Same inputs always produce the same result.
+ * `keepCount` bounds how many are kept in memory — the eligible space can reach the full 49-choose-5
+ * (~1.9M) when no constraint narrows it.
  */
 export function generateAllValidGrids(
 	scores: Record<number, number>,
@@ -205,24 +250,31 @@ export function generateAllValidGrids(
 
 	const includeScore = include.reduce((a, n) => a + (boostedScores[n] ?? 0), 0)
 
+	// Keep a wider reservoir than `keepCount` so the diversity pass has real options to pick from,
+	// rather than just the top `keepCount` by score (which tend to be near-duplicates of each other).
+	const reservoirSize = Math.max(keepCount * 15, 3000)
+
 	let totalValid = 0
-	const top: RankedGrid[] = []
+	const reservoir: RankedGrid[] = []
 
 	for (const rest of combinationsOf(eligiblePool, remaining)) {
 		const candidate = [...include, ...rest].sort((a, b) => a - b)
 		if (!satisfiesRules(candidate, config)) continue
 		totalValid++
 		const scoreSum = includeScore + rest.reduce((a, n) => a + (boostedScores[n] ?? 0), 0)
-		if (top.length < keepCount) {
-			top.push({ combination: candidate, scoreSum })
-			if (top.length === keepCount) top.sort((a, b) => a.scoreSum - b.scoreSum)
-		} else if (scoreSum > top[0].scoreSum) {
-			top[0] = { combination: candidate, scoreSum }
-			top.sort((a, b) => a.scoreSum - b.scoreSum)
+		if (reservoir.length < reservoirSize) {
+			reservoir.push({ combination: candidate, scoreSum })
+			if (reservoir.length === reservoirSize) reservoir.sort((a, b) => a.scoreSum - b.scoreSum)
+		} else if (scoreSum > reservoir[0].scoreSum) {
+			reservoir[0] = { combination: candidate, scoreSum }
+			reservoir.sort((a, b) => a.scoreSum - b.scoreSum)
 		}
 	}
 
-	return { grids: top.sort((a, b) => b.scoreSum - a.scoreSum), totalValid }
+	reservoir.sort((a, b) => b.scoreSum - a.scoreSum)
+	const grids = reservoir.length <= keepCount ? reservoir : selectDiverse(reservoir, keepCount, count)
+
+	return { grids, totalValid }
 }
 
 /** Generates up to `count` distinct grids satisfying the same config (best-effort — duplicates allowed if the constraints are very tight). */

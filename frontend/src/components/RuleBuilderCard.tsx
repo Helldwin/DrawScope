@@ -27,7 +27,7 @@ const SORT_OPTIONS: { id: SortBy; label: string; description: string }[] = [
 type Mode = "deterministic" | "random"
 
 const MODE_OPTIONS: { id: Mode; label: string; description: string }[] = [
-	{ id: "deterministic", label: "Déterministe (meilleur score)", description: "Toujours les mêmes grilles pour les mêmes réglages, classées par score." },
+	{ id: "deterministic", label: "Déterministe (meilleur score)", description: "Toujours les mêmes grilles pour les mêmes réglages, classées par score et réparties sur des numéros différents." },
 	{ id: "random", label: "Aléatoire pondéré (variété)", description: "Tirage pondéré par le score — change à chaque génération, pour varier les combinaisons." }
 ]
 
@@ -38,6 +38,10 @@ function uniformScores(poolSize = 49): Record<number, number> {
 	const out: Record<number, number> = {}
 	for (let i = 1; i <= poolSize; i++) out[i] = 1
 	return out
+}
+
+function gridKey(grid: number[]): string {
+	return grid.join(",")
 }
 
 export default function RuleBuilderCard({
@@ -61,6 +65,7 @@ export default function RuleBuilderCard({
 	const [rangeMin, setRangeMin] = useState(1)
 	const [rangeMax, setRangeMax] = useState(49)
 	const [lowHighCount, setLowHighCount] = useState<number | null>(null)
+	const [preferMinCount, setPreferMinCount] = useState<number | null>(null)
 	const [minScorePct, setMinScorePct] = useState(0)
 	const [chanceMode, setChanceMode] = useState<"auto" | number>("auto")
 	const [sortBy, setSortBy] = useState<SortBy>("composite")
@@ -72,7 +77,8 @@ export default function RuleBuilderCard({
 	const [totalValid, setTotalValid] = useState<number | null>(null)
 	const [visibleCount, setVisibleCount] = useState(1)
 	const [error, setError] = useState<string | null>(null)
-	const [savedIndices, setSavedIndices] = useState<Set<number>>(new Set())
+	const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set())
+	const [eliminatedKeys, setEliminatedKeys] = useState<Set<string>>(new Set())
 
 	const rankingScores = useMemo(() => {
 		switch (sortBy) {
@@ -87,6 +93,8 @@ export default function RuleBuilderCard({
 		}
 	}, [sortBy, draws, scores])
 
+	const maxPreferMinCount = Math.min(5, selection.prefer.length)
+
 	const generate = () => {
 		const config: RuleConfig = {
 			parity,
@@ -94,6 +102,7 @@ export default function RuleBuilderCard({
 			sumRange: sumEnabled ? [sumMin, sumMax] : null,
 			includeNumbers: selection.include,
 			preferNumbers: selection.prefer,
+			preferMinCount: maxPreferMinCount > 0 ? preferMinCount : null,
 			excludeNumbers: selection.exclude,
 			numberRange: rangeEnabled ? [rangeMin, rangeMax] : null,
 			lowHighCount,
@@ -102,7 +111,8 @@ export default function RuleBuilderCard({
 		const count = Math.min(MAX_GRIDS, Math.max(1, gridCount || 1))
 
 		setRunning(true)
-		setSavedIndices(new Set())
+		setSavedKeys(new Set())
+		setEliminatedKeys(new Set())
 		// Deferred so the "Calcul en cours…" state actually paints before the
 		// (synchronous, CPU-bound) search runs — the deterministic mode can scan
 		// the full combination space.
@@ -128,13 +138,21 @@ export default function RuleBuilderCard({
 		? Object.entries(chanceScores).sort((a, b) => b[1] - a[1])[0]?.[0]
 		: String(chanceMode)
 
-	const saveGrid = (grid: number[], index: number) => {
+	const saveGrid = (grid: number[]) => {
 		addSavedGrid(grid, chanceNumber ? Number(chanceNumber) : null)
-		setSavedIndices(prev => new Set(prev).add(index))
+		setSavedKeys(prev => new Set(prev).add(gridKey(grid)))
 	}
 
-	const visibleResults = results?.slice(0, visibleCount) ?? []
-	const canExpand = mode === "deterministic" && !!results && visibleCount < results.length
+	const eliminateGrid = (grid: number[]) => {
+		setEliminatedKeys(prev => new Set(prev).add(gridKey(grid)))
+	}
+
+	const remainingResults = useMemo(
+		() => (results ?? []).filter(g => !eliminatedKeys.has(gridKey(g))),
+		[results, eliminatedKeys]
+	)
+	const visibleResults = remainingResults.slice(0, visibleCount)
+	const canExpand = mode === "deterministic" && remainingResults.length > visibleCount
 
 	return (
 		<section className="card" aria-labelledby="rules-title">
@@ -148,6 +166,25 @@ export default function RuleBuilderCard({
 			<div className="section-block">
 				<h3 className="section-title">1. Numéros</h3>
 				<NumberPicker value={selection} onChange={setSelection} />
+
+				{selection.prefer.length > 0 && (
+					<div className="rule-field">
+						<label htmlFor="prefer-min-select">
+							Au moins combien de numéros privilégiés dans chaque grille ? (optionnel)
+							<InfoTooltip text="Force chaque grille à contenir au minimum ce nombre de numéros marqués « privilégié », plutôt que de simplement leur donner un bonus de score." />
+						</label>
+						<select
+							id="prefer-min-select"
+							value={preferMinCount ?? "any"}
+							onChange={e => setPreferMinCount(e.target.value === "any" ? null : Number(e.target.value))}
+						>
+							<option value="any">Indifférent (juste un bonus de score)</option>
+							{Array.from({ length: maxPreferMinCount }, (_, i) => i + 1).map(v => (
+								<option key={v} value={v}>{v}</option>
+							))}
+						</select>
+					</div>
+				)}
 			</div>
 
 			<div className="section-block">
@@ -259,7 +296,7 @@ export default function RuleBuilderCard({
 				<div className="rule-field">
 					<label htmlFor="mode-select">
 						Mode de génération
-						<InfoTooltip text="Déterministe : reproductible, prend les meilleures grilles possibles par score. Aléatoire pondéré : tirage au sort biaisé par le score, différent à chaque génération, pour varier les combinaisons." />
+						<InfoTooltip text="Déterministe : reproductible, prend les meilleures grilles possibles par score, réparties sur des numéros différents. Aléatoire pondéré : tirage au sort biaisé par le score, différent à chaque génération." />
 					</label>
 					<select id="mode-select" value={mode} onChange={e => setMode(e.target.value as Mode)}>
 						{MODE_OPTIONS.map(o => (
@@ -291,37 +328,46 @@ export default function RuleBuilderCard({
 
 			{visibleResults.length > 0 && (
 				<div className="rule-result">
-					{visibleResults.map((grid, i) => (
-						<div className="rule-result-item" key={i}>
-							<div className="predictions-row rule-result-row">
-								{grid.map((n, j) => (
-									<button className="ball ball-lg" key={j} onClick={() => onSelect(n, "main")}>
-										<span>{n}</span>
+					{visibleResults.map(grid => {
+						const key = gridKey(grid)
+						return (
+							<div className="rule-result-item" key={key}>
+								<div className="predictions-row rule-result-row">
+									{grid.map((n, j) => (
+										<button className="ball ball-lg" key={j} onClick={() => onSelect(n, "main")}>
+											<span>{n}</span>
+											{sortBy !== "uniform" && <small>{Math.round((rankingScores[n] ?? 0) * 100)}%</small>}
+										</button>
+									))}
+									{chanceNumber && (
+										<button className="ball ball-lg ball-chance" onClick={() => onSelect(Number(chanceNumber), "chance")}>
+											<span>{chanceNumber}</span>
+											<small>chance</small>
+										</button>
+									)}
+								</div>
+								<div className="rule-result-actions">
+									<button className="btn-ghost save-grid-btn" onClick={() => saveGrid(grid)} disabled={savedKeys.has(key)}>
+										{savedKeys.has(key) ? "★ Enregistrée" : "☆ Enregistrer"}
 									</button>
-								))}
-								{chanceNumber && (
-									<button className="ball ball-lg ball-chance" onClick={() => onSelect(Number(chanceNumber), "chance")}>
-										<span>{chanceNumber}</span>
-										<small>chance</small>
+									<button className="btn-ghost eliminate-grid-btn" onClick={() => eliminateGrid(grid)} title="Retirer cette grille des résultats">
+										✕ Éliminer
 									</button>
-								)}
+								</div>
 							</div>
-							<button className="btn-ghost save-grid-btn" onClick={() => saveGrid(grid, i)} disabled={savedIndices.has(i)}>
-								{savedIndices.has(i) ? "★ Enregistrée" : "☆ Enregistrer"}
-							</button>
-						</div>
-					))}
+						)
+					})}
 				</div>
 			)}
 
-			{mode === "deterministic" && totalValid !== null && results && results.length > 0 && (
+			{mode === "deterministic" && totalValid !== null && remainingResults.length > 0 && (
 				<div className="rule-expand">
-					<button className="btn-ghost" onClick={() => setVisibleCount(canExpand ? results.length : Math.min(gridCount, results.length))}>
-						{visibleCount} grille{visibleCount > 1 ? "s" : ""} affichée{visibleCount > 1 ? "s" : ""} sur {totalValid.toLocaleString("fr-FR")}
+					<button className="btn-ghost" onClick={() => setVisibleCount(canExpand ? remainingResults.length : Math.min(gridCount, remainingResults.length))}>
+						{visibleResults.length} grille{visibleResults.length > 1 ? "s" : ""} affichée{visibleResults.length > 1 ? "s" : ""} sur {totalValid.toLocaleString("fr-FR")}
 						{" "}combinaison{totalValid > 1 ? "s" : ""} valide{totalValid > 1 ? "s" : ""} — {canExpand ? "tout afficher" : "réduire"}
 					</button>
-					{totalValid > results.length && (
-						<span className="rule-hint">(les {results.length} meilleures conservées sur {totalValid.toLocaleString("fr-FR")} au total)</span>
+					{totalValid > (results?.length ?? 0) && (
+						<span className="rule-hint">(les {results?.length} meilleures, réparties sur des numéros différents, conservées sur {totalValid.toLocaleString("fr-FR")} au total)</span>
 					)}
 				</div>
 			)}
